@@ -29,8 +29,11 @@ class Blockchain:
     def __init__(self):
         # Creating the array attribute chain
         self.chain = []
+        #Separeted list to contain unmined transactions
+        self.transactions = []
         # Creating the funcion to create a block
         self.create_block(proof = 1, previous_hash = '0')
+        self.nodes = set()
         
     # Initialing the function to create a block
     def create_block(self, proof, previous_hash):
@@ -38,7 +41,11 @@ class Blockchain:
         block = {'index': len(self.chain) + 1, 
                  'timestamp': str(datetime.datetime.now()),
                  'proof': proof,
-                 'previous_hash': previous_hash}
+                 'previous_hash': previous_hash
+                 'transactions': self.transactions}
+        #Cleaning the list of transactions
+        self.transactions = []
+        #Append the block tho the chain
         self.chain.append(block)
         return block
     
@@ -106,6 +113,40 @@ class Blockchain:
             block_index += 1
         return True            
 
+    # Function to create a new transaction
+    def add_transaction(self, sender, reciver, amount):
+        # Append the new transaction into the list
+        self.transactions.append({'sender': sender,
+                                  'reciver': reciver,
+                                  'amount': amount})
+        # Get the last block in the chain
+        previous_block = self.get_previous_block()
+        # Return the last index + 1, to set where this new transaction will be added
+        return previous_block['index'] + 1
+    
+    
+    def add_node(self, address):
+        parsed_url = urlparse(address)
+        self.nodes.add(parsed_url.netloc)
+        
+        
+    def replace_chain(self):
+        network = self.nodes
+        longest_chain = None
+        max_length = len(self.chain)
+        for node in network:
+            response = requests.get(f'http://{node}/get_chain')
+            if response.status_code == 200:
+                length = response.json()['length']
+                chain = response.json()['chain']
+                if length > max_length and self.is_chain_valid(chain):
+                    max_length = length
+                    longest_chain = chain
+        if longest_chain:
+            self.chain = longest_chain
+            return True
+        return False
+    
 
 # Part 2 - Mining our Blockchain
 
@@ -165,7 +206,9 @@ def is_valid():
     # Returning the response with 200 (OK) http status
     return jsonify(response), 200
 
+
 # Part 3 - Decentralizing our Blockchain
+
 
 
 # Running the app with the localhost address (http://127.0.0.1:5000/)
