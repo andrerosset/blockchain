@@ -41,7 +41,7 @@ class Blockchain:
         block = {'index': len(self.chain) + 1, 
                  'timestamp': str(datetime.datetime.now()),
                  'proof': proof,
-                 'previous_hash': previous_hash
+                 'previous_hash': previous_hash,
                  'transactions': self.transactions}
         #Cleaning the list of transactions
         self.transactions = []
@@ -153,6 +153,9 @@ class Blockchain:
 # Creating a Web App with Flask
 app = Flask(__name__)
 
+# Creating an address for the Port 5000
+node_address = str(uuid4()).replace('-', '')
+
 # Creating a Blockchain instance
 blockchain = Blockchain()
 
@@ -167,6 +170,8 @@ def mine_block():
     proof = blockchain.proof_of_work(previous_proof)
     # Getting the hash from the previous block
     previous_hash = blockchain.hash(previous_block)
+    # Add transaction
+    blockchain.add_transaction(sender = node_address, reciver = 'Andre', amount = 1)
     # Creating a new block and returning the block
     block = blockchain.create_block(proof, previous_hash)
     # Creating the response
@@ -174,7 +179,8 @@ def mine_block():
                 'index': block['index'], 
                 'timestamp': block['timestamp'],
                 'proof': block['proof'],
-                'previous_hash': block['previous_hash']}
+                'previous_hash': block['previous_hash'],
+                'transactions': block['transactions']}
     # Returning the response with the 200 (OK) http status
     return jsonify(response), 200
     
