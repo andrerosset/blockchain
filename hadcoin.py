@@ -50,7 +50,7 @@ class Blockchain:
         return block
     
     # Creating a funcion to return the previous block of the chain
-    def get_previou_block(self):
+    def get_previous_block(self):
         # Returning the last inserted block of the chain
         return self.chain[-1]
     
@@ -126,23 +126,38 @@ class Blockchain:
     
     
     def add_node(self, address):
+        # Getting only the address and port
         parsed_url = urlparse(address)
+        # Adding the parsed Url to the node list
         self.nodes.add(parsed_url.netloc)
         
         
     def replace_chain(self):
+        # Getting the nodes from the blockchain
         network = self.nodes
+        # Set the longest chain as None
         longest_chain = None
+        # Getting the lenght of the chain
         max_length = len(self.chain)
+        # For each node in the nodes (network)
         for node in network:
+            # Get the chain from the node, with the Get_Chain function (GET)
             response = requests.get(f'http://{node}/get_chain')
+            # Checking if the resquest was successfull
             if response.status_code == 200:
+                # Getting the lenght of the chain of the node
                 length = response.json()['length']
+                # Getting the chain it self from the node
                 chain = response.json()['chain']
+                # Check if the chain from the request if longer than the current chain
+                # and if it's valid
                 if length > max_length and self.is_chain_valid(chain):
+                    # If true, set the store the length of the chain and the chain
                     max_length = length
                     longest_chain = chain
+        # If it's not None
         if longest_chain:
+            # Replace the current chain with the longest chain in the network
             self.chain = longest_chain
             return True
         return False
@@ -163,14 +178,14 @@ blockchain = Blockchain()
 @app.route('/mine_block', methods = ['GET'])
 def mine_block():
     # Getting the previous block
-    previous_block = blockchain.get_previou_block()
+    previous_block = blockchain.get_previous_block()
     # Getting the previous proof from the previous block
     previous_proof = previous_block['proof']
     # Getting the current proof based on the previous proof
     proof = blockchain.proof_of_work(previous_proof)
     # Getting the hash from the previous block
     previous_hash = blockchain.hash(previous_block)
-    # Add transaction
+    # Add transaction to the blockchain
     blockchain.add_transaction(sender = node_address, reciver = 'Andre', amount = 1)
     # Creating a new block and returning the block
     block = blockchain.create_block(proof, previous_hash)
@@ -212,9 +227,49 @@ def is_valid():
     # Returning the response with 200 (OK) http status
     return jsonify(response), 200
 
+# Adding a new transaction to the Blockchain
+@app.route('/add_transaction', methods = ['POST'])
+def add_transaction():
+    json = request.get_json()
+    transaction_keys = ['sender', 'receiver', 'amount']
+    if not all (key in json for key in transaction_keys):
+        return 'Some elements of the transaction are missing', 400
+    index = blockchain.add_transaction(json['sender'], json['receiver'], json['amount'])
+    response = {'messege': f'This transaction will be added to Block {index}'}
+    return jsonify(response), 201
+
 
 # Part 3 - Decentralizing our Blockchain
 
+# Connectiong new nodes
+@app.route('/connect_node', methods = ['POST'])
+def connect_node():
+    json = request.get_json()
+    nodes =  json.get('nodes')
+    if nodes is None:
+        return 'No node', 400
+    for node in nodes:    
+        blockchain.add_node(node)
+    response = {'messege': 'All the nodes are now connected. The Hadcoin Blockchain now contains the following nodes:',
+                'total_nodes': list(blockchain.nodes)}
+    return jsonify(response), 201
+
+# Replacing the chain by the longest chain if nedded
+@app.route('/replace_chain', methods = ['GET'])
+def replace_chain():
+    # Checking if the chain needs to be replaced
+    is_chain_replaced = blockchain.replace_chain()
+    # Checking if the return variable is True
+    if is_chain_replaced:
+        # Setting the messege for True
+        response = {'messege': 'The nodes has different chains so the chain was replaced by the longest one.',
+                    'new_chain': blockchain.chain}
+    else:
+        # Setting the messege for False
+        response = {'messege': 'All good. The chain is the largest one.',
+                    'actual_chain': blockchain.chain}    
+    # Returning the response with 200 (OK) http status
+    return jsonify(response), 200
 
 
 # Running the app with the localhost address (http://127.0.0.1:5000/)
